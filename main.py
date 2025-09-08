@@ -11,10 +11,11 @@ class ReportGeneratorApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Генератор отчетов по финансовым отчетам Wildberries")
-        self.setGeometry(100, 100, 1000, 600)
+        self.setGeometry(50, 50, 1200, 700)
 
         self.df = None  # Для хранения загруженных данных
         self.summary_df = None # Для хранения итоговых данных
+        self.total_row = None # Для хранения итоговой строки
 
         self.init_ui()
 
@@ -68,16 +69,22 @@ class ReportGeneratorApp(QMainWindow):
         sales_df = self.df.copy()
 
         if sales_df.empty:
-             QMessageBox.warning(self, "Предупреждение", "В файле не найдено строк с типом документа 'Продажа'.")
+             QMessageBox.warning(self, "Предупреждение", "В файле не найдено данных.")
              self.summary_df = pd.DataFrame() # Создаем пустой DataFrame
+             self.total_row = None
              return
 
         # Группируем по артикулу поставщика и названию
-        summary = sales_df.groupby(['Артикул поставщика', 'Название'], as_index=False).agg({
+        summary = sales_df.groupby(['Артикул поставщика', 'Название'], as_index=False, dropna=False).agg({
             'Кол-во': 'sum',
             'Вайлдберриз реализовал Товар (Пр)': 'sum', # Суммируем выручку
             'К перечислению Продавцу за реализованный Товар': 'sum', # Суммируем доход
-            'Услуги по доставке товара покупателю': 'sum' # Суммируем расходы на логистику
+            'Услуги по доставке товара покупателю': 'sum', # Суммируем расходы на логистику
+            'Хранение': 'sum', # Суммируем расходы на хранение
+            'Удержания': 'sum', # Суммируем удержания
+            'Платная приемка': 'sum', # Расходы на платную приемку
+            'Компенсация скидки по программе лояльности': 'sum', # Суммируем компенсацию скидки
+            'Общая сумма штрафов': 'sum' # Суммируем общую сумму штрафов
         })
 
         # Переименовываем колонки для ясности
@@ -87,12 +94,47 @@ class ReportGeneratorApp(QMainWindow):
             'Кол-во': 'Количество',
             'Вайлдберриз реализовал Товар (Пр)': 'Выручка',
             'К перечислению Продавцу за реализованный Товар': 'Доход',
-            'Услуги по доставке товара покупателю': 'Логистика'
+            'Услуги по доставке товара покупателю': 'Логистика',
+            'Компенсация скидки по программе лояльности': 'Компенсация скидки',
+            'Общая сумма штрафов': 'Штрафы'
         }, inplace=True)
         
-        # Добавляем колонку "Прибыль" (Доход - Логистика)
-        summary['Прибыль'] = summary['Доход'] - summary['Логистика']
+        # Добавляем колонку "Прибыль" (Доход - все расходы)
+        summary['Прибыль'] = (
+            summary['Доход'] - 
+            summary['Логистика'] - 
+            summary['Хранение'] - 
+            summary['Удержания'] - 
+            summary['Платная приемка'] - 
+            summary['Штрафы']
+        )
 
+        # Округляем все числовые колонки до 2 знаков после запятой
+        numeric_columns = summary.select_dtypes(include=['number']).columns
+        summary[numeric_columns] = summary[numeric_columns].round(2)
+
+        # Создаем итоговую строку
+        total_data = {
+            'Артикул': 'ИТОГО',
+            'Наименование': '',
+            'Количество': summary['Количество'].sum(),
+            'Выручка': summary['Выручка'].sum(),
+            'Доход': summary['Доход'].sum(),
+            'Логистика': summary['Логистика'].sum(),
+            'Хранение': summary['Хранение'].sum(),
+            'Удержания': summary['Удержания'].sum(),
+            'Платная приемка': summary['Платная приемка'].sum(),
+            'Компенсация скидки': self.df['Компенсация скидки по программе лояльности'].sum(),
+            'Штрафы': summary['Штрафы'].sum(),
+            'Прибыль': summary['Прибыль'].sum()
+        }
+        
+        # Округляем итоговые значения
+        for key, value in total_data.items():
+            if isinstance(value, (int, float)):
+                total_data[key] = round(value, 2)
+        
+        self.total_row = total_data
         self.summary_df = summary
 
     def display_summary(self):
@@ -103,15 +145,33 @@ class ReportGeneratorApp(QMainWindow):
             return
 
         rows, cols = self.summary_df.shape
-        self.table_summary.setRowCount(rows)
+        # Добавляем дополнительную строку для итогов
+        self.table_summary.setRowCount(rows + 1)
         self.table_summary.setColumnCount(cols)
         self.table_summary.setHorizontalHeaderLabels(self.summary_df.columns.tolist())
 
+        # Заполняем данные товаров
         for r in range(rows):
             for c in range(cols):
-                item = QTableWidgetItem(str(self.summary_df.iat[r, c]))
-                item.setFlags(item.flags() ^ Qt.ItemFlag.ItemIsEditable) # Делаем ячейки не редактируемыми
+                value = self.summary_df.iat[r, c]
+                item = QTableWidgetItem(str(value))
+                item.setFlags(item.flags() ^ Qt.ItemFlag.ItemIsEditable)
                 self.table_summary.setItem(r, c, item)
+
+        # Добавляем итоговую строку
+        if self.total_row:
+            for c, col_name in enumerate(self.summary_df.columns):
+                value = self.total_row.get(col_name, '')
+                item = QTableWidgetItem(str(value))
+                item.setFlags(item.flags() ^ Qt.ItemFlag.ItemIsEditable)
+                
+                # Выделяем итоговую строку жирным шрифтом
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
+                item.setBackground(Qt.GlobalColor.lightGray)
+                
+                self.table_summary.setItem(rows, c, item)
 
         self.table_summary.resizeColumnsToContents()
 
@@ -129,7 +189,15 @@ class ReportGeneratorApp(QMainWindow):
             if not file_path.endswith('.xlsx'):
                 file_path += '.xlsx'
             try:
-                self.summary_df.to_excel(file_path, index=False)
+                # Создаем копию DataFrame для сохранения
+                save_df = self.summary_df.copy()
+                
+                # Добавляем итоговую строку как новую строку в DataFrame
+                if self.total_row:
+                    total_series = pd.Series(self.total_row)
+                    save_df = pd.concat([save_df, total_series.to_frame().T], ignore_index=True)
+                
+                save_df.to_excel(file_path, index=False)
                 QMessageBox.information(self, "Успех", f"Отчет успешно сохранен в {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить файл: {e}")
