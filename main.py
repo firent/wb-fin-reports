@@ -17,7 +17,50 @@ class ReportGeneratorApp(QMainWindow):
         self.summary_df = None # Для хранения итоговых данных
         self.total_row = None # Для хранения итоговой строки
 
+        self.init_menu()
         self.init_ui()
+
+    def init_menu(self):
+        menubar = self.menuBar()
+        
+        # Menu "Menu"
+        help_menu = menubar.addMenu("Меню")
+        
+        # Item "About"
+        about_action = help_menu.addAction("О программе")
+        about_action.triggered.connect(self.show_about)
+
+        # Item "License"
+        license_action = help_menu.addAction("Лицензия")
+        license_action.triggered.connect(self.show_license)
+
+        # Item "Exit"
+        exit_action = help_menu.addAction("Выход")
+        exit_action.triggered.connect(self.close)
+
+    def show_about(self):
+        text = """
+        <b>Генератор отчетов по финансовым отчетам Wildberries</b><br><br>
+        Автор: Иван Пожидаев, 2025 г.<br><br>
+        Лицензия: MIT<br><br>
+        На основе финансовых отчетов Wildberries генерирует более понятный отчет с итогами.
+        """
+        QMessageBox.about(self, "О программе", text)
+
+    def show_license(self):
+        license_text = """
+        Лицензия MIT<br><br>
+        Copyright (c) 2025 Иван Пожидаев<br><br>
+        GitHub: <a href="https://github.com/firent/wb-fin-reports">https://github.com/firent/wb-fin-reports</a><br><br>
+        Разрешается свободное использование, копирование, модификация и распространение. 
+        Программа распространяется "как есть", без каких-либо гарантий.
+        Подробнее в файле LICENSE.
+        """
+        msg = QMessageBox()
+        msg.setWindowTitle("Лицензия")
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(license_text)
+        msg.exec()
 
     def init_ui(self):
         central_widget = QWidget()
