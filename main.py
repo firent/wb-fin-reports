@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget, QTableWidget, QTableWidgetItem,
     QMessageBox, QHBoxLayout, QLabel
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 
 class ReportGeneratorApp(QMainWindow):
     def __init__(self):
@@ -98,34 +98,27 @@ class ReportGeneratorApp(QMainWindow):
         if file_name:
             self.label_file.setText(f"Выбран файл: {file_name}")
             self.btn_save.setEnabled(False) # Отключаем кнопку сохранения, пока не обработаем новый файл
-            # Обрабатываем события Qt, чтобы окно отобразилось
 
-            # --- НАЧАЛО: Индикация обработки ---
             # 1. Меняем текст метки на сообщение обработки
             self.label_file.setText("Обработка файла...")
             # 2. Устанавливаем курсор ожидания для всего приложения
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             # 3. Обрабатываем события, чтобы изменения отобразились на экране
             QApplication.processEvents()
-            # --- КОНЕЦ: Индикация обработки ---
 
             try:
                 self.process_data(file_name)
                 self.display_summary()
                 self.btn_save.setEnabled(True)
-                # --- НАЧАЛО: Завершение индикации ---
                 # Сбрасываем курсор
                 QApplication.restoreOverrideCursor()
                 # Восстанавливаем или обновляем текст метки
                 self.label_file.setText(f"Файл обработан: {file_name}")
-                # --- КОНЕЦ: Завершение индикации ---
 
             except Exception as e:
-                # --- НАЧАЛО: Завершение индикации в случае ошибки ---
                 # Сбрасываем курсор даже если произошла ошибка
                 QApplication.restoreOverrideCursor()
                 self.label_file.setText(f"Ошибка при обработке: {file_name}") # Можно обновить текст на ошибку
-                # --- КОНЕЦ: Завершение индикации в случае ошибки ---
                 QMessageBox.critical(self, "Ошибка", f"Не удалось обработать файл: {e}")
 
     def process_data(self, file_path):
@@ -175,12 +168,6 @@ class ReportGeneratorApp(QMainWindow):
             'Компенсация скидки по программе лояльности': 'sum', # Суммируем компенсацию скидки
             'Общая сумма штрафов': 'sum' # Суммируем общую сумму штрафов
         })
-
-        # Debug data
-        #test_value = sales_df.groupby(['Тип документа'], as_index=False).agg({
-        #    'Вайлдберриз реализовал Товар (Пр)': 'sum' # Суммируем выручку
-        #})
-        #print(test_value)
 
         # Переименовываем колонки для ясности
         summary.rename(columns={
