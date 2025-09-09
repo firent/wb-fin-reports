@@ -11,7 +11,7 @@ class ReportGeneratorApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Генератор отчетов по финансовым отчетам Wildberries")
-        self.setGeometry(50, 50, 1200, 700)
+        self.setGeometry(50, 50, 1300, 700)
 
         self.df = None  # Для хранения загруженных данных
         self.summary_df = None # Для хранения итоговых данных
